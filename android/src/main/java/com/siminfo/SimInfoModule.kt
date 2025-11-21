@@ -1,13 +1,10 @@
 package com.siminfo
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
-import androidx.core.app.ActivityCompat
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -30,13 +27,9 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
     // Required for NativeEventEmitter compliance
   }
 
+  @Suppress("MissingPermission")
   override fun getSimSlotInfo(promise: Promise) {
     try {
-      if (!hasPhoneStatePermission()) {
-        promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission is required")
-        return
-      }
-
       val subscriptionManager = reactApplicationContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
       if (subscriptionManager == null) {
         promise.reject("SERVICE_UNAVAILABLE", "SubscriptionManager is not available")
@@ -46,16 +39,7 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
       val simSlots = Arguments.createArray()
       
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-        val activeSubscriptions = if (ActivityCompat.checkSelfPermission(
-            reactApplicationContext,
-            Manifest.permission.READ_PHONE_STATE
-          ) == PackageManager.PERMISSION_GRANTED
-        ) {
-          subscriptionManager.activeSubscriptionInfoList ?: emptyList()
-        } else {
-          promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission not granted")
-          return
-        }
+        val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
 
         activeSubscriptions.forEach { subInfo ->
           val simInfo = createSimInfoMap(subInfo)
@@ -73,13 +57,9 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  @Suppress("MissingPermission")
   override fun hasMultipleSims(promise: Promise) {
     try {
-      if (!hasPhoneStatePermission()) {
-        promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission is required")
-        return
-      }
-
       val subscriptionManager = reactApplicationContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
       if (subscriptionManager == null) {
         promise.resolve(false)
@@ -87,33 +67,22 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
       }
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-        val activeSubscriptions = if (ActivityCompat.checkSelfPermission(
-            reactApplicationContext,
-            Manifest.permission.READ_PHONE_STATE
-          ) == PackageManager.PERMISSION_GRANTED
-        ) {
-          subscriptionManager.activeSubscriptionInfoList ?: emptyList()
-        } else {
-          promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission not granted")
-          return
-        }
+        val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
 
         promise.resolve(activeSubscriptions.size > 1)
       } else {
         promise.resolve(false)
       }
+    } catch (e: SecurityException) {
+      promise.reject("SECURITY_EXCEPTION", "Permission denied: ${e.message}")
     } catch (e: Exception) {
       promise.reject("ERROR", "Error checking multiple SIMs: ${e.message}")
     }
   }
 
+  @Suppress("MissingPermission")
   override fun getActiveSimCount(promise: Promise) {
     try {
-      if (!hasPhoneStatePermission()) {
-        promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission is required")
-        return
-      }
-
       val subscriptionManager = reactApplicationContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
       if (subscriptionManager == null) {
         promise.resolve(0.0)
@@ -121,26 +90,20 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
       }
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-        val activeSubscriptions = if (ActivityCompat.checkSelfPermission(
-            reactApplicationContext,
-            Manifest.permission.READ_PHONE_STATE
-          ) == PackageManager.PERMISSION_GRANTED
-        ) {
-          subscriptionManager.activeSubscriptionInfoList ?: emptyList()
-        } else {
-          promise.reject("PERMISSION_DENIED", "READ_PHONE_STATE permission not granted")
-          return
-        }
+        val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
 
         promise.resolve(activeSubscriptions.size.toDouble())
       } else {
         promise.resolve(0.0)
       }
+    } catch (e: SecurityException) {
+      promise.reject("SECURITY_EXCEPTION", "Permission denied: ${e.message}")
     } catch (e: Exception) {
       promise.reject("ERROR", "Error getting active SIM count: ${e.message}")
     }
   }
 
+  @Suppress("MissingPermission")
   private fun createSimInfoMap(subInfo: SubscriptionInfo): WritableMap {
     val simInfo = Arguments.createMap()
 
@@ -163,22 +126,14 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
       var phoneNumber: String? = null
       
       // Method 1: Try from SubscriptionInfo
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (ActivityCompat.checkSelfPermission(
-            reactApplicationContext,
-            Manifest.permission.READ_PHONE_NUMBERS
-          ) == PackageManager.PERMISSION_GRANTED
-        ) {
-          phoneNumber = subInfo.number
-        }
-      } else {
-        if (hasPhoneStatePermission()) {
-          phoneNumber = subInfo.number
-        }
+      try {
+        phoneNumber = subInfo.number
+      } catch (e: Exception) {
+        // Ignore and continue
       }
       
       // Method 2: Try from TelephonyManager if still null
-      if (phoneNumber.isNullOrEmpty() && hasPhoneStatePermission()) {
+      if (phoneNumber.isNullOrEmpty()) {
         try {
           val telephonyManager = reactApplicationContext.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
           if (telephonyManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -198,17 +153,9 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
       }
 
       // ICC ID
-      if (ActivityCompat.checkSelfPermission(
-          reactApplicationContext,
-          Manifest.permission.READ_PHONE_STATE
-        ) == PackageManager.PERMISSION_GRANTED
-      ) {
-        val iccId = subInfo.iccId
-        if (iccId != null && iccId.isNotEmpty()) {
-          simInfo.putString("iccId", iccId)
-        } else {
-          simInfo.putNull("iccId")
-        }
+      val iccId = subInfo.iccId
+      if (iccId != null && iccId.isNotEmpty()) {
+        simInfo.putString("iccId", iccId)
       } else {
         simInfo.putNull("iccId")
       }
@@ -243,12 +190,5 @@ class SimInfoModule(reactContext: ReactApplicationContext) :
     }
 
     return simInfo
-  }
-
-  private fun hasPhoneStatePermission(): Boolean {
-    return ActivityCompat.checkSelfPermission(
-      reactApplicationContext,
-      Manifest.permission.READ_PHONE_STATE
-    ) == PackageManager.PERMISSION_GRANTED
   }
 }
