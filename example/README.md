@@ -1,97 +1,263 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# react-native-sim-info Example App
 
-# Getting Started
+This example app demonstrates how to use the `react-native-sim-info` library to retrieve and display SIM card information on Android devices.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features Demonstrated
 
-## Step 1: Start Metro
+- ✅ Custom `useSimInfo` hook for managing SIM info state
+- ✅ Permission handling with user-friendly UI
+- ✅ Loading and error states
+- ✅ Displaying all SIM slot information
+- ✅ Multi-SIM detection
+- ✅ Pull-to-refresh functionality
+- ✅ TypeScript implementation
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Project Structure
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+```
+example/
+├── src/
+│   ├── App.tsx                    # Main app component
+│   └── hooks/
+│       └── useSimInfo.ts          # Custom hook for SIM info
+```
+
+## useSimInfo Hook
+
+The example includes a custom `useSimInfo` hook located at `src/hooks/useSimInfo.ts` that wraps the library methods and provides:
+
+### Props
+
+The hook takes no parameters.
+
+### Return Value
+
+```typescript
+interface UseSimInfoResult {
+  simSlots: SimSlotInfo[];          // Array of SIM slot information
+  isLoading: boolean;               // Loading state
+  error: string | null;             // Error message if any
+  hasMultipleSims: boolean;         // Whether device has multiple SIMs
+  activeSimCount: number;           // Number of active SIM cards
+  refresh: () => Promise<void>;     // Refresh SIM information
+  requestPermission: () => Promise<boolean>; // Request permissions
+}
+```
+
+### Properties
+
+#### `simSlots`
+- **Type:** `SimSlotInfo[]`
+- **Description:** Array containing information about each active SIM card slot
+- **Example:**
+```javascript
+[
+  {
+    slotIndex: 0,
+    carrierName: "Verizon",
+    phoneNumber: "+1234567890",
+    // ... other properties
+  }
+]
+```
+
+#### `isLoading`
+- **Type:** `boolean`
+- **Description:** Indicates if SIM information is currently being fetched
+- **Usage:** Show loading spinner while `true`
+
+#### `error`
+- **Type:** `string | null`
+- **Description:** Contains error message if something went wrong, otherwise `null`
+- **Common errors:** `"Permission denied"`, `"Service unavailable"`
+
+#### `hasMultipleSims`
+- **Type:** `boolean`
+- **Description:** `true` if the device has 2 or more active SIM cards
+
+#### `activeSimCount`
+- **Type:** `number`
+- **Description:** The total number of active SIM cards in the device
+- **Values:** `0`, `1`, `2`, etc.
+
+### Methods
+
+#### `refresh()`
+- **Type:** `() => Promise<void>`
+- **Description:** Manually refresh SIM information
+- **Usage:**
+```javascript
+const { refresh } = useSimInfo();
+
+// Trigger refresh
+await refresh();
+```
+
+#### `requestPermission()`
+- **Type:** `() => Promise<boolean>`
+- **Description:** Request READ_PHONE_STATE permission from the user
+- **Returns:** `true` if permission granted, `false` otherwise
+- **Usage:**
+```javascript
+const { requestPermission } = useSimInfo();
+
+const granted = await requestPermission();
+if (granted) {
+  console.log('Permission granted!');
+}
+```
+
+## Usage Example
+
+```typescript
+import { useSimInfo } from './hooks/useSimInfo';
+
+function App() {
+  const {
+    simSlots,
+    isLoading,
+    error,
+    hasMultipleSims,
+    activeSimCount,
+    refresh,
+    requestPermission,
+  } = useSimInfo();
+
+  // Handle loading state
+  if (isLoading) {
+    return <ActivityIndicator />;
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <View>
+        <Text>Error: {error}</Text>
+        <Button title="Request Permission" onPress={requestPermission} />
+      </View>
+    );
+  }
+
+  // Display SIM information
+  return (
+    <ScrollView>
+      <Text>Active SIMs: {activeSimCount}</Text>
+      <Text>Dual SIM: {hasMultipleSims ? 'Yes' : 'No'}</Text>
+      
+      {simSlots.map((sim, index) => (
+        <View key={index}>
+          <Text>Slot {sim.slotIndex}</Text>
+          <Text>Carrier: {sim.carrierName}</Text>
+          <Text>Phone: {sim.phoneNumber || 'N/A'}</Text>
+          <Text>Country: {sim.countryIso}</Text>
+        </View>
+      ))}
+      
+      <Button title="Refresh" onPress={refresh} />
+    </ScrollView>
+  );
+}
+```
+
+## Running the Example
+
+### Prerequisites
+
+Make sure you have completed the [React Native environment setup](https://reactnative.dev/docs/set-up-your-environment).
+
+### Step 1: Install Dependencies
+
+From the **root** of the repository:
 
 ```sh
-# Using npm
+npm install
+```
+
+### Step 2: Start Metro
+
+From the **example** directory:
+
+```sh
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+### Step 3: Run on Android
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+In a new terminal, from the **example** directory:
 
 ```sh
-# Using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Or from the root:
 
 ```sh
-bundle install
+npm run example android
 ```
 
-Then, and every time you update your native dependencies, run:
+## Permissions
+
+The example app demonstrates proper permission handling:
+
+1. **Initial Load:** Automatically checks for permissions
+2. **Permission Request:** Shows UI to request permissions if not granted
+3. **Error Handling:** Displays appropriate error messages
+4. **Re-request:** Allows users to request permissions again if denied
+
+The `AndroidManifest.xml` includes:
+
+```xml
+<uses-permission android:name="android.permission.READ_PHONE_STATE" />
+<uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+```
+
+## Key Implementation Details
+
+### Automatic Permission Check
+The hook automatically checks for permissions on mount and requests them if needed.
+
+### Error Recovery
+If permissions are denied, the app provides a button to re-request them.
+
+### Data Refresh
+Pull-to-refresh or manual refresh button allows users to reload SIM data.
+
+### Multi-SIM Support
+The app automatically detects and displays information for all SIM slots.
+
+## Troubleshooting
+
+### No SIM Information Displayed
+
+1. Make sure your device has a SIM card inserted
+2. Check that permissions were granted
+3. Try using the refresh button
+4. Check LogCat for error messages
+
+### Permission Denied Error
+
+1. Go to Android Settings > Apps > Example App > Permissions
+2. Enable "Phone" permission
+3. Restart the app or use the refresh button
+
+### Build Errors
+
+If you encounter build errors:
 
 ```sh
-bundle exec pod install
+# Clean and rebuild
+cd android
+./gradlew clean
+cd ..
+npm run android
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Learn More
 
-```sh
-# Using npm
-npm run ios
+- [react-native-sim-info Documentation](../README.md)
+- [React Native Documentation](https://reactnative.dev/docs/getting-started)
+- [Android Permissions Guide](https://developer.android.com/guide/topics/permissions/overview)
 
-# OR using Yarn
-yarn ios
-```
+## License
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+MIT

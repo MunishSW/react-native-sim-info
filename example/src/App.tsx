@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useSimInfo } from 'react-native-sim-info';
+import { useSimInfo } from './hooks/useSimInfo';
 
 /**
  * Example component demonstrating how to use the useSimInfo hook
