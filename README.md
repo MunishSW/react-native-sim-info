@@ -22,7 +22,7 @@ npm install react-native-sim-info
 ### Install from GitHub
 
 ```sh
-npm install git+https://github.com/MunishSW/react-native-sim-info.git
+npm install https://github.com/MunishSW/react-native-sim-info.git
 ```
 
 ### Permissions
